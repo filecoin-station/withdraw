@@ -2,10 +2,14 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "standard && node test",
+    "test": "standard && mocha",
     "start": "node bin/station-withdraw.js"
   },
+  "standard": {
+    "env": ["mocha"]
+  },
   "devDependencies": {
+    "mocha": "^10.2.0",
     "standard": "^17.1.0"
   },
   "dependencies": {
