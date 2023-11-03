@@ -19,12 +19,28 @@ describe('Withdraw', () => {
   })
 
   it('withdraws', async () => {
+    const balanceOfCalls = []
+    const withdrawOnBehalfCalls = []
+
     const contract = {
-      balanceOf: async () => ethers.utils.parseUnits('1'),
-      withdrawOnBehalf: async () => ({
-        hash: '0x...',
-        wait: async () => {}
-      })
+      balanceOf: async account => {
+        balanceOfCalls.push(account)
+        return ethers.utils.parseUnits('1')
+      },
+      withdrawOnBehalf: async (account, target, value, v, r, s) => {
+        withdrawOnBehalfCalls.push({
+          account,
+          target,
+          value,
+          v,
+          r,
+          s
+        })
+        return {
+          hash: '0x...',
+          wait: async () => {}
+        }
+      }
     }
     server.once('request', createHandler({
       signer,
@@ -60,5 +76,15 @@ describe('Withdraw', () => {
 
     const txHash = await res.text()
     assert.strictEqual(txHash, '0x...')
+
+    assert.deepStrictEqual(balanceOfCalls, [account])
+    assert.deepStrictEqual(withdrawOnBehalfCalls, [{
+      account,
+      target,
+      value,
+      v,
+      r,
+      s
+    }])
   })
 })
