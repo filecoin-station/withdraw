@@ -42,10 +42,7 @@ describe('Withdraw', () => {
         }
       }
     }
-    server.once('request', createHandler({
-      signer,
-      contract
-    }))
+    server.once('request', createHandler({ signer, contract }))
 
     const account = signer.address
     const nonce = 0
