@@ -16,3 +16,9 @@ Request body:
   "s": "0x..."
 }
 ```
+
+Response:
+
+```
+<Transaction Hash>
+```
