@@ -189,4 +189,48 @@ describe('Withdraw', () => {
     assert.strictEqual(balanceOfCalls.length, 1)
     assert.strictEqual(withdrawOnBehalfCalls.length, 1)
   })
+
+  it('screens `target` addresses', async () => {
+    const balanceOfCalls = []
+    const withdrawOnBehalfCalls = []
+    const contract = {
+      balanceOf: async () => {
+        balanceOfCalls.push({})
+      },
+      withdrawOnBehalf: async () => {
+        withdrawOnBehalfCalls.push({})
+      }
+    }
+    server.once('request', createHandler({ signer, contract }))
+
+    const account = signer.address
+    const nonce = 0
+    const withdraw = signer.address
+    const target = '0x1da5821544e25c636c1417ba96ade4cf6d2f9b5a' // sanctioned
+    const value = ethers.utils.parseUnits('1')
+
+    const digest = ethers.utils.solidityKeccak256(
+      ['address', 'uint256', 'address', 'address', 'uint256'],
+      [account, nonce, withdraw, target, value]
+    )
+    const signed = await signer.signMessage(digest)
+    const { v, r, s } = ethers.utils.splitSignature(signed)
+
+    const res = await fetch(`http://127.0.0.1:${server.address().port}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        account,
+        nonce,
+        target,
+        value: value.toString(),
+        v,
+        r,
+        s
+      })
+    })
+    assert.strictEqual(res.status, 403)
+
+    assert.strictEqual(balanceOfCalls.length, 0)
+    assert.strictEqual(withdrawOnBehalfCalls.length, 0)
+  })
 })
