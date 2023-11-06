@@ -32,6 +32,12 @@ const handler = async (req, res, { signer, contract }) => {
   assert.strictEqual(reqSigner, account, 403, 'Invalid signature')
 
   const tx = await lockOrFail(account, async () => {
+    const fetchRes = await fetch(
+      `https://station-wallet-screening.fly.dev/${target}`
+    )
+    assert.notStrictEqual(fetchRes.status, 403, 403, '`target` address sanctioned')
+    assert(fetchRes.ok, 500, 'Failed to screen `target` address')
+
     const balance = await contract.balanceOf(account)
     assert(
       balance.gt(ethers.utils.parseUnits('0.1')),
