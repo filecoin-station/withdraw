@@ -3,6 +3,7 @@ import { createHandler } from './index.js'
 import ethers from 'ethers'
 import { once } from 'node:events'
 import assert from 'node:assert'
+import timers from 'node:timers/promises'
 
 describe('Withdraw', () => {
   const signer = ethers.Wallet.createRandom()
@@ -125,5 +126,67 @@ describe('Withdraw', () => {
 
     assert.deepStrictEqual(balanceOfCalls, [])
     assert.deepStrictEqual(withdrawOnBehalfCalls, [])
+  })
+
+  it('prevents parallel withdrawals', async () => {
+    const balanceOfCalls = []
+    const withdrawOnBehalfCalls = []
+    const contract = {
+      balanceOf: async () => {
+        await timers.setTimeout()
+        balanceOfCalls.push({})
+        return ethers.utils.parseUnits('1')
+      },
+      withdrawOnBehalf: async () => {
+        withdrawOnBehalfCalls.push({})
+        return {
+          hash: '0x...',
+          wait: async () => {}
+        }
+      }
+    }
+    const handler = createHandler({ signer, contract })
+    server.once('request', (req, res) => {
+      handler(req, res)
+      server.once('request', handler)
+    })
+
+    const account = signer.address
+    const nonce = 0
+    const withdraw = signer.address
+    const target = signer.address
+    const value = ethers.utils.parseUnits('1')
+
+    const digest = ethers.utils.solidityKeccak256(
+      ['address', 'uint256', 'address', 'address', 'uint256'],
+      [account, nonce, withdraw, target, value]
+    )
+    const signed = await signer.signMessage(digest)
+    const { v, r, s } = ethers.utils.splitSignature(signed)
+    const body = JSON.stringify({
+      account,
+      nonce,
+      target,
+      value: value.toString(),
+      v,
+      r,
+      s
+    })
+
+    const responses = await Promise.all([
+      fetch(`http://127.0.0.1:${server.address().port}`, {
+        method: 'POST',
+        body
+      }),
+      fetch(`http://127.0.0.1:${server.address().port}`, {
+        method: 'POST',
+        body
+      })
+    ])
+    assert(responses.find(res => res.status === 200))
+    assert(responses.find(res => res.status === 409))
+
+    assert.strictEqual(balanceOfCalls.length, 1)
+    assert.strictEqual(withdrawOnBehalfCalls.length, 1)
   })
 })
